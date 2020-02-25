@@ -1,0 +1,92 @@
+Preview generation service
+=============
+
+### How to build
+
+```
+// images only
+go build
+
+// images, documents
+go build -tags extralibs
+```
+
+#### Dependencies in extralibs mode
+
+- libreoffice
+- libreofficekit-dev
+- libvips
+- libvips-dev
+
+#### Build with docker
+
+just use the provided Dockerfile
+
+### How to start
+
+```
+preview
+```
+
+#### configuration
+
+Can be set through config.yml 
+
+```yaml
+port: 3201
+key: any
+uploadlimit: 33000000
+text:
+  fontdpi: 72
+  fontsize: 12
+  fontfile: "./fonts/DroidSansMono.ttf"
+```
+
+or through ENV parameters ( APP_TEXT_FONTSIZE, etc.)
+
+
+**for all modes**
+
+- port - http port of the service, default is 3201
+- key - secret key
+- uploadlimit - max file size allowed
+
+**for code previews**
+
+- fontdpi - screen resolution in Dots Per Inch
+- fontfile - filename of the ttf font
+- fontsize - font size in points
+
+### How to use
+
+Service expects POST request with a document and respond with preview image
+
+#### Incoming parameters
+
+form-multipart
+
+- width - requested preview width, number in pixels
+- height - requested preview height, number in pixels
+- file - body of document for which preview need to be generated
+
+#### Response
+
+Response is a png of jpg image of preview
+
+#### Authorization
+
+If `key` parameter was set in the configuration, the incoming request must contains matching URL parameter
+
+```
+POST https://some.com/preview?key={key}
+```
+
+#### Supported document types
+
+- Documents ( doc, docx, xls, xlsx, pdf )
+- Images ( jpg, png, tiff, svg, gif, webp )
+- Code files ( js, json, css, html, yaml, yml, xml, ts, md, ini, java, go, sql, sh  )
+
+### License
+
+MIT

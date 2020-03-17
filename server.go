@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bytes"
 	"errors"
-	"flag"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/unrolled/render"
@@ -11,6 +11,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"github.com/google/gops/agent"
+	"github.com/jinzhu/configor"
 )
 
 var format = render.New()
@@ -20,67 +23,97 @@ type Response struct {
 	Error  string `json:"error"`
 }
 
-var (
-	port     = flag.String("port", "3201", "service port")
-	fontdpi  = flag.Float64("fontdpi", 72, "screen resolution in Dots Per Inch")
-	fontfile = flag.String("fontfile", "./fonts/DroidSansMono.ttf", "filename of the ttf font")
-	fontsize = flag.Float64("fontsize", 12, "font size in points")
-)
+type AppConfig struct {
+	Port        string `default:"3201"`
+	Key         string
+	Text        TextConfig
+	UploadLimit int64 `default:"33000000"`
+}
+
+type TextConfig struct {
+	FontDPI  float64 `default:"72"`
+	FontSize float64 `default:"12"`
+	FontFile string  `default:"./fonts/DroidSansMono.ttf"`
+}
+
+var Config AppConfig
 
 func main() {
-	flag.Parse()
+	configor.New(&configor.Config{ENVPrefix: "APP"}).Load(&Config, "config.yml")
+
+	if err := agent.Listen(agent.Options{}); err != nil {
+		log.Fatal(err)
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	r.Post("/preview", func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		if Config.Key != "" {
+			apiKey := r.URL.Query().Get("key")
+			if Config.Key != apiKey {
+				format.Text(w, 500, "Access denied")
+				return
+			}
+		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, Config.UploadLimit)
+		r.ParseMultipartForm(Config.UploadLimit)
+
+		file, handler, err := r.FormFile("file")
+		if err != nil {
+			format.Text(w, 500, "Can't accept the file")
+			return
+		}
+		defer file.Close()
+
 		q := r.Form
 
 		width, _ := strconv.Atoi(q.Get("width"))
 		height, _ := strconv.Atoi(q.Get("height"))
-		source := q.Get("source")
-		target := q.Get("target")
+		name := handler.Filename
 
-		ext := strings.ToLower(path.Ext(source))
-		base := path.Base(source)
-		if base == "Dockerfile" {
+		ext := strings.ToLower(path.Ext(handler.Filename))
+		if handler.Filename == "Dockerfile" {
 			ext = ".docker"
 		}
 
-		var err error
+		var writer = bytes.Buffer{}
+		var outType = "png"
 		switch ext {
-		case ".jpg", ".png", ".jpeg":
-			err = getImagePreview(source, target, width, height)
-
 		case ".txt":
-			err = genTxtPreview(source, target, width, height)
+			err = genTxtPreview(file, &writer, width, height)
 
 		case ".json", ".js", ".css", ".html", ".htm", ".yaml", ".yml", ".docker", ".xml", ".ts", ".md", ".ini", ".java", ".go", ".sql", ".sh":
-			err = genCodePreview(source, target, width, height)
+			err = genCodePreview(file, &writer, name, width, height)
 
 		case ".xls", ".xlsx":
-			err = genOfficeOtherPreview(source, target, width, height)
+			err = genOfficeOtherPreview(file, &writer, name, width, height)
 
 		case ".doc", ".docx":
-			err = genOfficeDocPreview(source, target, width, height)
+			err = genOfficeDocPreview(file, &writer, name, width, height)
 
-		case ".tiff", ".svg", ".pdf", ".gif", ".webp":
-			err = genImagePreview(source, target, width, height)
-
+		case ".jpg", ".png", ".jpeg", ".tiff", ".svg", ".pdf", ".gif", ".webp":
+			err = genImagePreview(file, &writer, width, height)
+			outType = "jpg"
 		default:
 			err = errors.New("unsupported file type")
 		}
 
 		if err == nil {
-			format.JSON(w, 200, Response{Status: true})
+			if outType == "png" {
+				w.Header().Add("Content-type", "image/png")
+			} else {
+				w.Header().Add("Content-type", "image/jpg")
+			}
+			writer.WriteTo(w)
 		} else {
-			format.JSON(w, 200, Response{Status: false, Error: err.Error()})
+			format.Text(w, 500, err.Error())
 		}
 	})
 
-	log.Printf("starting service ad port %s", *port)
-	http.ListenAndServe(":"+*port, r)
+	log.Printf("starting service ad port %s", Config.Port)
+	http.ListenAndServe(":"+Config.Port, r)
 
 }

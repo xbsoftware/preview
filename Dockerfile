@@ -1,4 +1,4 @@
-FROM ubuntu:19.04
+FROM ubuntu:19.04 AS builder
 
 RUN \
         apt-get update && \
@@ -9,28 +9,11 @@ RUN \
         		libreoffice \
                 libreofficekit-dev \
         && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/
-
-RUN \
-        apt-get update && \
-        apt-get clean && \
-        apt-get install -f && \
         DEBIAN_FRONTEND=noninteractive \
                 apt-get install --no-install-recommends -y -f --force-yes \
         		libvips \
                 libvips-dev \
-        && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/
-
-RUN \
-        apt-get update && \
-        apt-get clean && \
-        apt-get install -f && \
-        DEBIAN_FRONTEND=noninteractive \
-                apt-get install --no-install-recommends -y -f --force-yes \
-        		curl \
+                curl \
         && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/
@@ -56,7 +39,31 @@ ENV PATH="${PATH}:/usr/local/go/bin"
 
 WORKDIR "/app"
 COPY *.go *.mod *.sum /app/
-COPY fonts /app/fonts/
-
 RUN go build -tags extralibs
+
+
+
+
+
+FROM ubuntu:19.04 AS worker
+RUN \
+        apt-get update && \
+        apt-get clean && \
+        apt-get install -f && \
+        DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y -f --force-yes \
+        		libreoffice \
+                libreofficekit-dev \
+        && \
+        DEBIAN_FRONTEND=noninteractive \
+                apt-get install --no-install-recommends -y -f --force-yes \
+        		libvips \
+        && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/
+
+WORKDIR "/app"
+COPY fonts /app/fonts/
+COPY --from=builder /app/preview .
+
 CMD ./preview

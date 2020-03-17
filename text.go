@@ -7,26 +7,17 @@ import (
 	"golang.org/x/image/font"
 	"image"
 	"image/draw"
-	"image/jpeg"
 	"image/png"
 	"io"
 	"io/ioutil"
-	"os"
-	"path"
 	"strings"
 )
 
-func genTxtPreview(source, target string, width, height int) error {
+func genTxtPreview(source io.Reader, target io.Writer, width, height int) error {
 	c, rgba, size := textCanvas(width, height)
+	scanner := bufio.NewScanner(source)
 
-	sFile, err := os.Open(source)
-	if err != nil {
-		return err
-	}
-	defer sFile.Close()
-	scanner := bufio.NewScanner(sFile)
-
-	err = printText(c, scanner, size)
+	err := printText(c, scanner, size)
 	if err != nil {
 		return err
 	}
@@ -34,16 +25,10 @@ func genTxtPreview(source, target string, width, height int) error {
 	return saveText(target, rgba)
 }
 
-func genCodePreview(source, target string, width, height int) error {
+func genCodePreview(source io.Reader, target io.Writer, name string, width, height int) error {
 	c, rgba, size := textCanvas(width, height)
 
-	sFile, err := os.Open(source)
-	if err != nil {
-		return err
-	}
-	defer sFile.Close()
-
-	err = printCode(c, path.Base(source), sFile, size)
+	err := printCode(c, name, source, size)
 	if err != nil {
 		return err
 	}
@@ -57,13 +42,13 @@ func textCanvas(width, height int) (*freetype.Context, image.Image, float64) {
 	draw.Draw(rgba, rgba.Bounds(), image.White, image.ZP, draw.Src)
 
 	// scale down fonts for small images
-	size := *fontsize
+	size := Config.Text.FontSize
 	if width < 400 {
 		size = size * float64(width) / 400
 	}
 
 	c := freetype.NewContext()
-	c.SetDPI(*fontdpi)
+	c.SetDPI(Config.Text.FontDPI)
 	c.SetFont(initFont())
 	c.SetFontSize(size)
 	c.SetClip(rgba.Bounds())
@@ -74,23 +59,8 @@ func textCanvas(width, height int) (*freetype.Context, image.Image, float64) {
 	return c, rgba, size
 }
 
-func saveText(target string, rgba image.Image) error {
-	_, err := os.Stat(target)
-	if err == nil {
-		os.Remove(target)
-	}
-	f, err := os.Create(target)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	tExt := path.Ext(target)
-	if tExt == ".png" {
-		return png.Encode(f, rgba)
-	} else {
-		return jpeg.Encode(f, rgba, &jpeg.Options{Quality: 80})
-	}
+func saveText(target io.Writer, rgba image.Image) error {
+	return png.Encode(target, rgba)
 }
 
 func printCode(c *freetype.Context, name string, reader io.Reader, size float64) error {

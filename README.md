@@ -4,14 +4,14 @@ Preview generation service
 ### How to build
 
 ```
-// images only
+// txt, code
 go build
 
-// images, documents
+// txt, code, images, documents
 go build -tags extralibs
 ```
 
-#### Dependencies in extralibs mode
+### Dependencies in extralibs mode
 
 - libreoffice
 - libreofficekit-dev
@@ -60,6 +60,10 @@ or through ENV parameters ( APP_TEXT_FONTSIZE, etc.)
 ### How to use
 
 Service expects POST request with a document and respond with preview image
+
+```
+POST http://localhost:3201/preview
+```
 
 #### Incoming parameters
 

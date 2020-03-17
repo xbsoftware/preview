@@ -4,10 +4,12 @@ package main
 
 import (
 	"gopkg.in/h2non/bimg.v1"
+	"io"
+	"io/ioutil"
 )
 
-func genImagePreview(source, target string, width, height int) error {
-	buffer, err := bimg.Read(source)
+func genImagePreview(source io.Reader, target io.Writer, width, height int) error {
+	buffer, err := ioutil.ReadAll(source)
 	if err != nil {
 		return err
 	}
@@ -18,11 +20,12 @@ func genImagePreview(source, target string, width, height int) error {
 		Height:     height,
 		Background: bimg.Color{255, 255, 255},
 		Embed:      true,
+		Crop:       true,
 	})
 	if err != nil {
 		return err
 	}
 
-	bimg.Write(target, newImage)
+	target.Write(newImage)
 	return nil
 }

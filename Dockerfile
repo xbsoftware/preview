@@ -1,4 +1,4 @@
-FROM ubuntu:19.04 AS builder
+FROM ubuntu:20.04 AS builder
 
 RUN \
         apt-get update && \

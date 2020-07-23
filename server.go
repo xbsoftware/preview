@@ -3,14 +3,17 @@ package main
 import (
 	"bytes"
 	"errors"
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
-	"github.com/unrolled/render"
+	"io"
 	"log"
 	"net/http"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
+	"github.com/unrolled/render"
 
 	"github.com/google/gops/agent"
 	"github.com/jinzhu/configor"
@@ -49,21 +52,39 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Post("/preview", func(w http.ResponseWriter, r *http.Request) {
-		if Config.Key != "" {
-			apiKey := r.URL.Query().Get("key")
-			if Config.Key != apiKey {
-				format.Text(w, 500, "Access denied")
-				return
-			}
+	illegalName := regexp.MustCompile(`[^[:alnum:]-.]`)
+	r.Post("/convert", func(w http.ResponseWriter, r *http.Request) {
+		file, name, err := incomingFile(w, r)
+		if err != nil {
+			format.Text(w, 500, err.Error())
+			return
+		}
+		defer file.Close()
+
+		writer := bytes.Buffer{}
+		outName := illegalName.ReplaceAllString(r.Form.Get("name"), "")
+		outType := illegalName.ReplaceAllString(r.Form.Get("type"), "")
+
+		if outName == "" || outType == "" {
+			format.Text(w, 500, "Invalid conversion target")
+			return
 		}
 
-		r.Body = http.MaxBytesReader(w, r.Body, Config.UploadLimit)
-		r.ParseMultipartForm(Config.UploadLimit)
-
-		file, handler, err := r.FormFile("file")
+		err = convertOffice(file, &writer, name, outType)
 		if err != nil {
-			format.Text(w, 500, "Can't accept the file")
+			format.Text(w, 500, err.Error())
+			return
+		}
+
+		w.Header().Add("Content-type", "application/"+outType)
+		w.Header().Add("Content-Disposition", "attachment; filename=\""+outName+"\"")
+		writer.WriteTo(w)
+	})
+
+	r.Post("/preview", func(w http.ResponseWriter, r *http.Request) {
+		file, name, err := incomingFile(w, r)
+		if err != nil {
+			format.Text(w, 500, err.Error())
 			return
 		}
 		defer file.Close()
@@ -72,10 +93,9 @@ func main() {
 
 		width, _ := strconv.Atoi(q.Get("width"))
 		height, _ := strconv.Atoi(q.Get("height"))
-		name := handler.Filename
 
-		ext := strings.ToLower(path.Ext(handler.Filename))
-		if handler.Filename == "Dockerfile" {
+		ext := strings.ToLower(path.Ext(name))
+		if name == "Dockerfile" {
 			ext = ".docker"
 		}
 
@@ -116,4 +136,23 @@ func main() {
 	log.Printf("starting service ad port %s", Config.Port)
 	http.ListenAndServe(":"+Config.Port, r)
 
+}
+
+func incomingFile(w http.ResponseWriter, r *http.Request) (io.ReadCloser, string, error) {
+	if Config.Key != "" {
+		apiKey := r.URL.Query().Get("key")
+		if Config.Key != apiKey {
+			return nil, "", errors.New("Access denied")
+		}
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, Config.UploadLimit)
+	r.ParseMultipartForm(Config.UploadLimit)
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		return nil, "", errors.New("Can't accept the file")
+	}
+
+	return file, handler.Filename, nil
 }

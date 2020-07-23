@@ -79,3 +79,34 @@ func genOfficeOtherPreview(source io.Reader, target io.Writer, name string, widt
 
 	return saveText(target, m)
 }
+
+func convertOffice(source io.Reader, writer io.Writer, name, outType string) error {
+	file, _ := ioutil.TempFile(os.TempDir(), "*"+name)
+	io.Copy(file, source)
+	file.Close()
+	inName := file.Name()
+
+	document, err := office.LoadDocument(inName)
+	if err != nil {
+		return err
+	}
+	defer document.Close()
+
+	outName := inName + "." + outType
+	err = document.SaveAs(outName, outType, "")
+	if err != nil {
+		return err
+	}
+
+	outFile, err := os.Open(outName)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	_, err = io.Copy(writer, outFile)
+
+	os.Remove(inName)
+	os.Remove(outName)
+	return err
+}

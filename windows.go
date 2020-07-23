@@ -18,3 +18,7 @@ func genOfficeOtherPreview(source io.Reader, target io.Writer, name string, widt
 func genImagePreview(source io.Reader, target io.Writer, width, height int) error {
 	return errors.New("Not supported without extra libraries")
 }
+
+func convertOffice(source io.Reader, writer io.Writer, name, outType string) error {
+	return errors.New("Not supported without extra libraries")
+}

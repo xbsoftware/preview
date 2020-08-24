@@ -1,4 +1,4 @@
-FROM ubuntu:19.04 AS builder
+FROM ubuntu:20.04 AS builder
 
 RUN \
         apt-get update && \
@@ -45,7 +45,7 @@ RUN go build -tags extralibs
 
 
 
-FROM ubuntu:19.04 AS worker
+FROM ubuntu:20.04 AS worker
 RUN \
         apt-get update && \
         apt-get clean && \

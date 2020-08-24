@@ -91,7 +91,7 @@ func main() {
 		case ".xls", ".xlsx":
 			err = genOfficeOtherPreview(file, &writer, name, width, height)
 
-		case ".doc", ".docx":
+		case ".doc", ".docx", ".odt", ".rtf":
 			err = genOfficeDocPreview(file, &writer, name, width, height)
 
 		case ".jpg", ".png", ".jpeg", ".tiff", ".svg", ".pdf", ".gif", ".webp":
@@ -109,6 +109,7 @@ func main() {
 			}
 			writer.WriteTo(w)
 		} else {
+			log.Println(err.Error())
 			format.Text(w, 500, err.Error())
 		}
 	})

@@ -8,13 +8,18 @@ import (
 	"io/ioutil"
 	"os"
 	"unsafe"
+	"sync"
 
 	"github.com/docsbox/go-libreofficekit"
 )
 
 var office, _ = libreofficekit.NewOffice("/usr/lib/libreoffice/program")
+var officeMux = sync.Mutex{}
 
 func genOfficeDocPreview(source io.Reader, target io.Writer, name string, width, height int) error {
+	officeMux.Lock()
+	defer officeMux.Unlock()
+
 	file, _ := ioutil.TempFile(os.TempDir(), "*"+name)
 	io.Copy(file, source)
 	file.Close()
@@ -39,6 +44,9 @@ func genOfficeDocPreview(source io.Reader, target io.Writer, name string, width,
 }
 
 func genOfficeOtherPreview(source io.Reader, target io.Writer, name string, width, height int) error {
+	officeMux.Lock()
+	defer officeMux.Unlock()
+
 	file, _ := ioutil.TempFile(os.TempDir(), "*"+name)
 	io.Copy(file, source)
 	file.Close()

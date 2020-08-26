@@ -88,7 +88,7 @@ func main() {
 		case ".json", ".js", ".css", ".html", ".htm", ".yaml", ".yml", ".docker", ".xml", ".ts", ".md", ".ini", ".java", ".go", ".sql", ".sh":
 			err = genCodePreview(file, &writer, name, width, height)
 
-		case ".xls", ".xlsx":
+		case ".xls", ".xlsx", ".ods":
 			err = genOfficeOtherPreview(file, &writer, name, width, height)
 
 		case ".doc", ".docx", ".odt", ".rtf":

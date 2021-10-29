@@ -19,12 +19,6 @@ RUN \
         rm -rf /var/lib/apt/lists/
 
 RUN \
-        curl -O https://dl.google.com/go/go1.13.6.linux-amd64.tar.gz \
-        && tar -C /usr/local -xzf go1.13.6.linux-amd64.tar.gz \
-        && rm -rf ./go1.13.6.linux-amd64.tar.gz \
-        && export PATH=$PATH:/usr/local/go/bin
-
-RUN \
         apt-get update && \
         apt-get clean && \
         apt-get install -f && \
@@ -34,6 +28,12 @@ RUN \
         && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/
+
+RUN \
+        curl -O -L https://golang.org/dl/go1.17.2.linux-amd64.tar.gz \
+        && rm -rf /usr/local/go && tar -C /usr/local -xzf go1.17.2.linux-amd64.tar.gz \
+        && rm -rf ./go1.17.2.linux-amd64.tar.gz \
+        && export PATH=$PATH:/usr/local/go/bin
 
 ENV PATH="${PATH}:/usr/local/go/bin"
 
